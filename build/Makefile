@@ -31,9 +31,9 @@ sbindir ?= $(exec_prefix)/sbin
 sysconfdir ?= $(prefix)/etc
 includedir ?= $(prefix)/include
 datarootdir ?= $(prefix)/share
+docdir ?= $(datarootdir)/doc/$(PROJ)
 infodir ?= $(datarootdir)/info
 mandir ?= $(datarootdir)/man
-docdir ?= $(datarootdir)/doc/$(PROJ)
 localstatedir ?= $(prefix)/var
 
 INSTALL = install -p
@@ -50,10 +50,14 @@ STRIP = strip -s
 	$(cc) $(cflags) -c -o $@ $<
 
 # Macro Defines
-PKG_SORT_KEY ?= 6,6
+TAR_SORT_KEY ?= 6,6
 
 PROGRAMS = \
 				gai_test$(exe) \
+
+DOC = \
+				LICENSE \
+				README.md \
 
 include $(topdir)/config.mk
 
@@ -80,23 +84,43 @@ check:
 test:
 
 # Install
-install: install-PROGRAMS
+install: install-PROGRAMS install-DOC
 
 install-PROGRAMS:
 	@list='$(PROGRAMS)'; \
-	if [ ! -d "$(DESTDIR)$(bindir)/" ]; then \
-		echo " mkdir -p $(DESTDIR)$(bindir)/"; \
-		mkdir -p $(DESTDIR)$(bindir)/; \
-	fi;\
 	for i in $$list; do \
-		echo " $(INSTALL_PROGRAM) $$i $(DESTDIR)$(bindir)/"; \
-		$(INSTALL_PROGRAM) $$i $(DESTDIR)$(bindir)/; \
+		dir="`dirname \"$(DESTDIR)$(bindir)/$$i\"`"; \
+		if [ ! -d "$$dir/" ]; then \
+			echo " mkdir -p $$dir/"; \
+			mkdir -p $$dir/; \
+		fi;\
+		echo " $(INSTALL_PROGRAM) $$i $(DESTDIR)$(bindir)/$$i"; \
+		$(INSTALL_PROGRAM) $$i $(DESTDIR)$(bindir)/$$i; \
+	done
+
+install-DOC:
+	@list='$(DOC)'; \
+	for i in $$list; do \
+		dir="`dirname \"$(DESTDIR)$(docdir)/$$i\"`"; \
+		if [ ! -d "$$dir/" ]; then \
+			echo " mkdir -p $$dir/"; \
+			mkdir -p $$dir/; \
+		fi;\
+		echo " $(INSTALL_DATA) $(topdir)/$$i $(DESTDIR)$(docdir)/$$i"; \
+		$(INSTALL_DATA) $(topdir)/$$i $(DESTDIR)$(docdir)/$$i; \
 	done
 
 # Pkg
 pkg:
 	@$(MAKE) DESTDIR=$(CURDIR)/$(PROJ)-$(VER).$(ENVTYPE) install; \
 	tar cvf ./$(PROJ)-$(VER).$(ENVTYPE).tar ./$(PROJ)-$(VER).$(ENVTYPE) > /dev/null; \
-	tar tvf ./$(PROJ)-$(VER).$(ENVTYPE).tar 2>&1 | sort -k $(PKG_SORT_KEY) | tee ./$(PROJ)-$(VER).$(ENVTYPE).tar.list.txt; \
+	tar tvf ./$(PROJ)-$(VER).$(ENVTYPE).tar 2>&1 | sort -k $(TAR_SORT_KEY) | tee ./$(PROJ)-$(VER).$(ENVTYPE).tar.list.txt; \
 	gzip -f ./$(PROJ)-$(VER).$(ENVTYPE).tar; \
 	rm -fr ./$(PROJ)-$(VER).$(ENVTYPE)
+
+# Dist
+dist:
+	@cd $(topdir); \
+	git archive --format=tar --prefix=$(PROJ)-$(VER)/ $(TAG) > ../$(PROJ)-$(VER).tar; \
+	tar tvf ../$(PROJ)-$(VER).tar 2>&1 | sort -k $(TAR_SORT_KEY) | tee ../$(PROJ)-$(VER).tar.list.txt; \
+	gzip -f ../$(PROJ)-$(VER).tar
